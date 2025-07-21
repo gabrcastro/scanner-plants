@@ -1,20 +1,18 @@
 package com.scanner.app.presentation.camera
 
 import CameraPreviewViewModel
-import android.provider.CalendarContract.Colors
+import android.app.Activity
 import androidx.camera.compose.CameraXViewfinder
 import androidx.camera.viewfinder.core.ImplementationMode
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -22,13 +20,14 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Menu
-import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -36,16 +35,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.vectorResource
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
@@ -55,15 +56,49 @@ import com.scanner.app.R
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun CameraPreviewScreen(
+    navController: NavController,
     modifier: Modifier = Modifier,
+    setAppBarVisibility: (Boolean) -> Unit,
 ) {
+    val view = LocalView.current
+    val window = (view.context as? Activity)?.window
+
+    DisposableEffect(key1 = window) { // Re-run if window instance changes
+        val windowInsetsController = window?.let { WindowCompat.getInsetsController(it, view) }
+
+        if (windowInsetsController != null) {
+            // Hide both status and navigation bars
+            windowInsetsController.hide(WindowInsetsCompat.Type.systemBars()) // Key change
+
+            // Configure behavior for immersive mode (user can swipe to temporarily show them)
+            windowInsetsController.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+
+            // Signal that the TopAppBar (custom app bar) should also be hidden
+            setAppBarVisibility(false)
+        }
+
+        onDispose {
+            // This block is the cleanup for DisposableEffect
+            if (windowInsetsController != null) {
+                // Show both status and navigation bars again when leaving the screen
+                windowInsetsController.show(WindowInsetsCompat.Type.systemBars()) // Key change
+            }
+            // Signal that the TopAppBar can be shown again
+            setAppBarVisibility(true)
+        }
+    }
+
     val cameraPermissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
     if (cameraPermissionState.status.isGranted) {
         val viewModel: CameraPreviewViewModel = viewModel() // Use a função viewModel()
-        CameraPreviewContent(viewModel = viewModel, modifier = modifier)
+        CameraPreviewContent(viewModel = viewModel, navController = navController)
     } else {
         Column(
-            modifier = modifier.fillMaxSize().wrapContentSize().widthIn(max = 480.dp),
+            modifier = modifier
+                .fillMaxSize()
+                .wrapContentSize()
+                .widthIn(max = 480.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             val textToShow = if (cameraPermissionState.status.shouldShowRationale) {
@@ -85,6 +120,7 @@ fun CameraPreviewScreen(
 
 @Composable
 fun CameraPreviewContent(
+    navController: NavController,
     viewModel: CameraPreviewViewModel,
     modifier: Modifier = Modifier,
     lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
@@ -96,65 +132,51 @@ fun CameraPreviewContent(
             viewModel.bindToCamera(context.applicationContext, lifecycleOwner)
         }
 
-    Box(modifier = modifier) { // This Box now takes the Modifier.fillMaxSize()
+    Box(modifier = modifier) {
         surfaceRequest?.let { request ->
             CameraXViewfinder(
                 surfaceRequest = request,
-                modifier = Modifier.fillMaxSize(), // Camera preview fills the entire Box
+                modifier = Modifier.fillMaxSize(),
                 implementationMode = ImplementationMode.EXTERNAL,
             )
         }
 
-        Row (
-            modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(horizontal = 16.dp, vertical = 40.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Row(
+            modifier = Modifier.padding(vertical = 40.dp, horizontal = 16.dp)
         ) {
-            IconButton(
-                onClick = {},
-            ) {
-                Icon(imageVector = Icons.Outlined.Menu, contentDescription = "Menu button")
-            }
-
-            Text(
-                "Scanner App",
-                style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            )
-
-            IconButton(
-                onClick = {},
-            ) {
-                Icon(imageVector = Icons.Outlined.MoreVert, contentDescription = "Options button")
+            IconButton(onClick = { navController.navigateUp() }) {
+                Icon(
+                    imageVector = Icons.Filled.KeyboardArrowLeft,
+                    contentDescription = "Back",
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
             }
         }
 
         Box(
             modifier = Modifier
-                .align(Alignment.BottomCenter) // Alinha ao centro inferior da Box
-                .padding(bottom = 32.dp) // Adiciona um padding da parte inferior da tela
-                .size(72.dp) // Tamanho total do círculo externo
-                .border(BorderStroke(4.dp, Color.White), CircleShape) // Borda branca
-                .background(Color.Black.copy(alpha = 0.5f), CircleShape) // Fundo preto semi-transparente
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 32.dp)
+                .size(72.dp)
+                .border(BorderStroke(4.dp, Color.White), CircleShape)
+                .background(Color.Black.copy(alpha = 0.5f), CircleShape)
                 .clickable {
-                    // TODO: Implementar a lógica para tirar a foto aqui!
-                    // Por exemplo: viewModel.takePicture()
                     println("Botão de foto clicado!")
                 }
         ) {
-            // Se quiser um círculo interno branco, você pode adicionar outro Box aqui
             Box(
                 modifier = Modifier
-                    .fillMaxSize(0.8f) // Ocupa 80% do tamanho do pai (círculo externo)
-                    .align(Alignment.Center) // Centraliza dentro do pai
-                    .background(Color.White, CircleShape) // Círculo interno branco
+                    .fillMaxSize(0.8f)
+                    .align(Alignment.Center)
+                    .background(Color.White, CircleShape)
             )
         }
 
         IconButton (
             onClick = { viewModel.switchCamera() },
             modifier = Modifier
-                .align(Alignment.BottomEnd) // Align to top-right corner of the Box
-                .padding(end = 16.dp, bottom = 40.dp) // Adjust padding to clear status bar and edge
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 40.dp)
         ) {
             val imageVector = ImageVector.vectorResource(id = R.drawable.flip_camera_ios_24dp)
             Icon(imageVector, contentDescription = "Alternar Câmera")

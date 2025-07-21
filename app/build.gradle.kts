@@ -40,6 +40,9 @@ android {
 }
 
 dependencies {
+    // navigation
+    implementation(libs.androidx.navigation.compose)
+
     // camera
     implementation(libs.androidx.camera.core)
     implementation(libs.androidx.camera.compose)

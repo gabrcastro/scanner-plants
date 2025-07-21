@@ -13,9 +13,13 @@ camerax = "1.5.0-alpha06"
 accompanist = "0.37.2" # or whatever matches with your Compose version
 # viewmodel -----------------------------
 lifecycleCompose = "2.8.0"
+navigationCompose = "2.9.2"
+# navigation ----------------------------
+
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
