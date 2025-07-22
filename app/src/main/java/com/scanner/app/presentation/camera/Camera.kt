@@ -2,6 +2,8 @@ package com.scanner.app.presentation.camera
 
 import CameraPreviewViewModel
 import android.app.Activity
+import android.util.Log
+import android.widget.Toast
 import androidx.camera.compose.CameraXViewfinder
 import androidx.camera.viewfinder.core.ImplementationMode
 import androidx.compose.foundation.BorderStroke
@@ -20,16 +22,21 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -52,6 +59,7 @@ import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
 import com.scanner.app.R
+import com.scanner.app.ui.theme.White
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -127,6 +135,9 @@ fun CameraPreviewContent(
     ) {
         val surfaceRequest by viewModel.surfaceRequest.collectAsStateWithLifecycle()
         val context = LocalContext.current
+        val coroutineScope = rememberCoroutineScope()
+
+        var isCapturing by remember { mutableStateOf(false) }
 
         LaunchedEffect(lifecycleOwner) {
             viewModel.bindToCamera(context.applicationContext, lifecycleOwner)
@@ -142,13 +153,15 @@ fun CameraPreviewContent(
         }
 
         Row(
-            modifier = Modifier.padding(vertical = 40.dp, horizontal = 16.dp)
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(vertical = 40.dp, horizontal = 16.dp)
         ) {
             IconButton(onClick = { navController.navigateUp() }) {
                 Icon(
-                    imageVector = Icons.Filled.KeyboardArrowLeft,
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
-                    tint = MaterialTheme.colorScheme.onSurface
+                    tint = White
                 )
             }
         }
@@ -157,19 +170,41 @@ fun CameraPreviewContent(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 32.dp)
-                .size(72.dp)
-                .border(BorderStroke(4.dp, Color.White), CircleShape)
-                .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-                .clickable {
-                    println("Botão de foto clicado!")
-                }
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize(0.8f)
-                    .align(Alignment.Center)
-                    .background(Color.White, CircleShape)
-            )
+            if (isCapturing) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(72.dp),
+                    color = White
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .border(BorderStroke(4.dp, Color.White), CircleShape)
+                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                        .clickable(enabled = !isCapturing) { // Disable click while capturing
+                            isCapturing = true
+                            viewModel.takePhoto { success, uriString, error ->
+                                isCapturing = false // Reset loading state
+                                if (success) {
+                                    Log.d("CameraScreen", "Photo saved: $uriString")
+                                    Toast.makeText(context, "Photo saved!", Toast.LENGTH_SHORT).show()
+                                    // Optionally navigate or do something with the URI
+                                } else {
+                                    Log.e("CameraScreen", "Error saving photo: $error")
+                                    Toast.makeText(context, "Error: $error", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        }
+                ) {
+                    Box( // Inner white circle (visual only)
+                        modifier = Modifier
+                            .fillMaxSize(0.8f)
+                            .align(Alignment.Center)
+                            .background(Color.White, CircleShape)
+                    )
+                }
+            }
         }
 
         IconButton (
@@ -178,8 +213,9 @@ fun CameraPreviewContent(
                 .align(Alignment.BottomEnd)
                 .padding(end = 16.dp, bottom = 40.dp)
         ) {
-            val imageVector = ImageVector.vectorResource(id = R.drawable.flip_camera_ios_24dp)
-            Icon(imageVector, contentDescription = "Alternar Câmera")
+            val imageVector = ImageVector
+                .vectorResource(id = R.drawable.flip_camera_ios_24dp)
+            Icon(imageVector, tint = White, contentDescription = "Alternar Câmera")
         }
     }
 
